@@ -24,6 +24,10 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
 
 #include "Utils.h"
 #include "Servos/LX16a.h"
@@ -85,7 +89,8 @@ uint8_t LX16a::read_byte()
 {
     if (!m_port || !m_port->is_open()) return m_unitTestRun;
 
-    std::vector<uint8_t> buffer(1);
+    // Pre-allocate buffer - transport_drivers requires pre-sized vector
+    std::vector<uint8_t> buffer(128);
     try {
         size_t bytes_read = m_port->receive(buffer);
         if (bytes_read > 0) {
@@ -130,6 +135,8 @@ bool LX16a::send_packet(uint8_t id, int8_t cmd, const uint8_t* params, size_t pa
 
     try {
         m_port->send(buf);
+        // Give servo time to process and respond (LX16a needs ~1-5ms, plus USB latency)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         return true;
     } catch (const std::exception& e) {
         RCLCPP_ERROR(rclcpp::get_logger("LX16a"), "Error sending packet: %s", e.what());
@@ -148,68 +155,126 @@ bool LX16a::read_packet(uint8_t id, uint8_t cmd, uint8_t *params, size_t param_c
     int got = 0;
     int len = 7; // Minimum length
     uint8_t sum = 0;
+    bool bytes_received = false;
+    bool synced = false;  // Track if we've found the 0x55 0x55 header
+    int sync_count = 0;   // Count consecutive 0x55 bytes
 
-    // Timeout after 100ms
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(100);
+    // Timeout after 150ms
+    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(150);
+    
+    // Use a larger buffer to get multiple bytes at once
+    std::vector<uint8_t> recv_buf(128);
+    int buf_pos = 0;
+    int buf_len = 0;
 
-    while (got < len && std::chrono::high_resolution_clock::now() < timeout) {
-        try {
-            std::vector<uint8_t> recv_buf;
-            size_t bytes = m_port->receive(recv_buf);
-            
-            if (bytes > 0) {
-                uint8_t byte = recv_buf[0];
+    while (std::chrono::high_resolution_clock::now() < timeout) {
+        uint8_t byte;
+        
+        // If we've consumed all buffered data, try to read more
+        if (buf_pos >= buf_len) {
+            try {
+                buf_len = m_port->receive(recv_buf);
+                buf_pos = 0;
                 
-                switch (got) {
-                    case 0:
-                    case 1:
-                        if (byte != 0x55) {
-                            return false;
-                        }
-                        break;
-                    case 2:
-                        if (byte != id && id != 0xfe) {
-                            return false;
-                        }
-                        break;
-                    case 3:
-                        if (byte < 3 || byte > 7) {
-                            return false;
-                        }
-                        len = byte + 3;
-                        if (len > (int)param_cnt + 6) {
-                            return false;
-                        }
-                        break;
-                    case 4:
-                        if (byte != cmd) {
-                            return false;
-                        }
-                        break;
-                    default:
-                        if (got == len - 1) {
-                            if (byte == (uint8_t)~sum) {
-                                return true;
-                            } else {
-                                return false;
-                            }
-                        }
-                        if (got - 5 > (int)param_cnt) {
-                            return false;
-                        }
-                        params[got - 5] = byte;
+                if (buf_len == 0) {
+                    // No data, sleep and retry
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
                 }
-
-                if (got > 1)
-                    sum += byte;
-                got++;
-            } else {
+            } catch (const std::exception& e) {
+                if (std::string(e.what()).find("Interrupted") != std::string::npos) {
+                    // Retry on interrupt
+                    std::this_thread::sleep_for(std::chrono::microseconds(100));
+                    continue;
+                }
+                // For other errors, just sleep and try again
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
             }
-        } catch (const std::exception& e) {
-            RCLCPP_ERROR(rclcpp::get_logger("LX16a"), "Error reading packet: %s", e.what());
-            return false;
         }
+        
+        if (buf_pos < buf_len) {
+            byte = recv_buf[buf_pos++];
+            bytes_received = true;
+            
+            // If not synced yet, look for 0x55 0x55 header
+            if (!synced) {
+                if (byte == 0x55) {
+                    sync_count++;
+                    if (sync_count == 2) {
+                        synced = true;
+                        got = 2;  // We've received the two sync bytes
+#ifdef DEBUG_LOG
+                        printf("55 55 ");
+#endif
+                    }
+                } else {
+                    sync_count = 0;  // Reset if we see a non-0x55 byte
+                }
+                continue;
+            }
+            
+            // Once synced, process packet normally
+            if (got >= len) break;  // Packet complete
+#ifdef DEBUG_LOG
+            printf("%02X ", byte);
+#endif
+            
+            switch (got) {
+                case 2:
+                    if (byte != id && id != 0xfe) {
+                        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Servo ID mismatch: expected 0x%02X, got 0x%02X", id, id, byte);
+                        return false;
+                    }
+                    break;
+                case 3:
+                    if (byte < 3 || byte > 7) {
+                        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Invalid length byte: 0x%02X (must be 3-7)", id, byte);
+                        return false;
+                    }
+                    len = byte + 3;
+                    if (len > (int)param_cnt + 6) {
+                        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Length exceeds buffer: len=%d, buffer_size=%zu", id, len, param_cnt + 6);
+                        return false;
+                    }
+                    break;
+                case 4:
+                    if (byte != cmd) {
+                        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Command mismatch: expected 0x%02X, got 0x%02X", id, cmd, byte);
+                        return false;
+                    }
+                    break;
+                default:
+                    if (got == len - 1) {
+                        if (byte == (uint8_t)~sum) {
+#ifdef DEBUG_LOG
+                            printf("\n");
+#endif
+                            return true;
+                        } else {
+                            RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Checksum mismatch: expected 0x%02X, got 0x%02X", id, (uint8_t)~sum, byte);
+                            return false;
+                        }
+                    }
+                    if (got - 5 > (int)param_cnt) {
+                        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d): Parameter index out of bounds", id);
+                        return false;
+                    }
+                    params[got - 5] = byte;
+            }
+
+            if (got > 1)
+                sum += byte;
+            got++;
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+    
+    if (!bytes_received) {
+        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d, cmd=0x%02X): No response received from servo (timeout after 150ms)", id, cmd);
+    } else if (!synced) {
+        RCLCPP_WARN(rclcpp::get_logger("LX16a"), "read_packet(id=%d, cmd=0x%02X): Failed to sync to packet header (timeout after 150ms)", id, cmd);
     }
     
     return false;
@@ -258,14 +323,16 @@ bool LX16a::motor_off(uint8_t id)
 
 bool LX16a::get_pos(uint8_t id, int16_t& pos)
 {
-    const int kMaxAttempts = 1;
+    const int kMaxAttempts = 1;  // Single attempt first
     int i = 0;
     uint8_t params[2];
     for (; i < kMaxAttempts; ++i) {
         if (!send_packet(id, 28)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
         if (!read_packet(id, 28, params, sizeof(params))) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
         break;

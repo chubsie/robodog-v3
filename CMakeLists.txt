@@ -94,11 +94,37 @@ target_link_libraries(${PROJECT_NAME}_remote_controller
   ${rosidl_get_libraries_for_interface_packages}
 )
 
+# Create the servo controller diagnostics executable
+add_executable(${PROJECT_NAME}_servo_diagnostics
+  "src/Services/ServoControllerDiagnostics.cpp"
+)
+
+# Link the servo diagnostics against its dependencies
+ament_target_dependencies(${PROJECT_NAME}_servo_diagnostics rclcpp serial_driver io_context)
+target_link_libraries(${PROJECT_NAME}_servo_diagnostics
+  ${PROJECT_NAME}_lib
+  ${rosidl_get_libraries_for_interface_packages}
+)
+
+# Create the servo scanner executable
+add_executable(${PROJECT_NAME}_servo_scanner
+  "src/Services/ServoScanner.cpp"
+)
+
+# Link the servo scanner against its dependencies
+ament_target_dependencies(${PROJECT_NAME}_servo_scanner rclcpp serial_driver io_context)
+target_link_libraries(${PROJECT_NAME}_servo_scanner
+  ${PROJECT_NAME}_lib
+  ${rosidl_get_libraries_for_interface_packages}
+)
+
 # Install the executables so they can be found by `ros2 run`
 install(TARGETS
   ${PROJECT_NAME}_hw
   ${PROJECT_NAME}_client
   ${PROJECT_NAME}_remote_controller
+  ${PROJECT_NAME}_servo_diagnostics
+  ${PROJECT_NAME}_servo_scanner
   DESTINATION lib/${PROJECT_NAME}
 )
 
