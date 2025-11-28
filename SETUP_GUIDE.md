@@ -1,6 +1,6 @@
 # RoboDog V3 for Jetson Orin Nano + ROS2 Humble
 
-A complete adaptation of the RoboDog V3 repository for Jetson Orin Nano Super 8G with ROS2 Humble and 8bitdo Ultimate controller support.
+A complete adaptation of the RoboDog V3 repository (From Robolabhub) for Jetson Orin Nano Super 8G with ROS2 Humble and 8bitdo Ultimate controller support.
 
 ## System Requirements
 
