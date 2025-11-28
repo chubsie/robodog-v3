@@ -1,0 +1,101 @@
+# 8bitdo Ultimate Controller Configuration for RoboDog V3
+# This file maps controller inputs to robot commands
+# 
+# 8bitdo Ultimate Button Mapping:
+# [0] = A, [1] = B, [2] = X, [3] = Y
+# [4] = LB, [5] = RB, [6] = Back, [7] = Start
+# [8] = (reserved), [9] = Left Stick Click, [10] = Right Stick Click
+#
+# Axes:
+# [0] = Left Stick X (horizontal), [1] = Left Stick Y (vertical, inverted in joy_node)
+# [2] = Left Trigger (LT), [3] = Right Stick X (horizontal)
+# [4] = Right Stick Y (vertical), [5] = Right Trigger (RT)
+# [6] = D-Pad X, [7] = D-Pad Y
+
+controller:
+  type: "8bitdo_ultimate"
+  vendor_id: 0x2dc8
+  product_id: 0x3822
+
+# Button mappings
+buttons:
+  # Movement controls
+  forward: 7    # Start button to enable forward movement (with analog sticks)
+  backward: 6   # Back button to enable backward movement
+  
+  # Gait/Movement modes
+  stand: 0      # A button
+  walk: 1       # B button
+  trot: 2       # X button  
+  gallop: 3     # Y button
+  
+  # Orientation/Head controls
+  turn_left: 6  # Back button (also used for backward trigger)
+  turn_right: 7 # Start button (also used for forward trigger)
+  
+  # Speed controls
+  speed_up: 5   # RB (Right Bumper)
+  speed_down: 4 # LB (Left Bumper)
+  
+  # Stance/Pose controls
+  sit: 4        # LB - sit position
+  stand_tall: 5 # RB - stand tall position
+  
+  # Utilities
+  reset: 6      # Back button
+  emergency_stop: 7 # Start button (hold)
+  
+  # Debug
+  debug_toggle: 9  # Left stick click
+  diagnostics: 10  # Right stick click
+
+# Analog stick thresholds
+sticks:
+  left_deadzone: 0.15
+  right_deadzone: 0.15
+  left_scale: 1.0
+  right_scale: 1.0
+  # Left stick: forward/backward and left/right movement
+  left_stick_x: 0    # Axis index for horizontal
+  left_stick_y: 1    # Axis index for vertical
+  # Right stick: rotation
+  right_stick_x: 3   # Axis index for horizontal
+  right_stick_y: 4   # Axis index for vertical
+
+# Trigger controls
+triggers:
+  left_trigger: 2    # Axis index
+  right_trigger: 5   # Axis index
+  trigger_deadzone: 0.05
+
+# D-Pad
+dpad:
+  x_axis: 6
+  y_axis: 7
+
+# Movement parameters
+movement:
+  max_linear_velocity: 1.0    # m/s
+  max_angular_velocity: 1.57  # rad/s
+  step_height: 0.05           # meters
+  stance_width: 0.3           # meters between legs
+
+# Gait speeds (multiplier of max velocity)
+gaits:
+  walk:
+    speed_factor: 0.3
+    step_duration: 0.8  # seconds
+  trot:
+    speed_factor: 0.6
+    step_duration: 0.4
+  gallop:
+    speed_factor: 1.0
+    step_duration: 0.3
+
+# Node configuration
+node:
+  name: "remote_controller"
+  joy_topic: "/joy"
+  cmd_vel_topic: "/cmd_vel"
+  log_level: "INFO"
+
