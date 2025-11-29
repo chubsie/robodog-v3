@@ -52,17 +52,29 @@ private:
     std::map<std::string, int> m_button_mapping;
     std::map<std::string, int> m_axis_mapping;
 
-    // Button state tracking
-    Button m_button_a;
-    Button m_button_b;
-    Button m_button_x;
-    Button m_button_y;
-    Button m_button_l1;
-    Button m_button_r1;
-    Button m_button_back;
-    Button m_button_start;
-    Button m_button_l3;
-    Button m_button_r3;
+    // Button state tracking (Nintendo Pro Controller mapping)
+    Button m_button_b;              // buttons[0]
+    Button m_button_a;              // buttons[1]
+    Button m_button_y;              // buttons[2]
+    Button m_button_x;              // buttons[3]
+    Button m_button_l;              // buttons[4] - Left Bumper
+    Button m_button_r;              // buttons[5] - Right Bumper
+    Button m_button_l2;             // buttons[6] - Left Trigger
+    Button m_button_r2;             // buttons[7] - Right Trigger
+    Button m_button_minus;          // buttons[8] - Minus (-)
+    Button m_button_plus;           // buttons[9] - Plus (+)
+    Button m_button_l_stick;        // buttons[10] - Left Stick Press
+    Button m_button_r_stick;        // buttons[11] - Right Stick Press
+    Button m_button_home;           // buttons[12]
+    Button m_button_star;           // buttons[13] - Screenshot
+
+    // Axis indices (Nintendo Pro Controller)
+    // axes[0]: Left Stick X (Left is +1, Right is -1)
+    // axes[1]: Left Stick Y (Up is +1, Down is -1)
+    // axes[2]: Right Stick X (Left is +1, Right is -1)
+    // axes[3]: Right Stick Y (Up is +1, Down is -1)
+    // axes[4]: D-Pad X (Left is +1, Right is -1)
+    // axes[5]: D-Pad Y (Up is +1, Down is -1)
 
     // Configuration values
     float m_left_deadzone;

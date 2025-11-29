@@ -26,9 +26,10 @@
 #include <filesystem>
 
 RemoteController::RemoteController() : Node("remote_controller"),
-    m_button_a(0), m_button_b(1), m_button_x(2), m_button_y(3),
-    m_button_l1(4), m_button_r1(5), m_button_back(6), m_button_start(7),
-    m_button_l3(9), m_button_r3(10),
+    m_button_b(0), m_button_a(1), m_button_y(2), m_button_x(3),
+    m_button_l(4), m_button_r(5), m_button_l2(6), m_button_r2(7),
+    m_button_minus(8), m_button_plus(9), m_button_l_stick(10), m_button_r_stick(11),
+    m_button_home(12), m_button_star(13),
     m_left_deadzone(0.15), m_right_deadzone(0.15)
 {
     // Try to load configuration file
