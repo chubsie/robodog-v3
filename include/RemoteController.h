@@ -28,9 +28,15 @@
 #include "Button.h"
 #include "CommandMenu.h"
 #include "IK.h"
+#include "Servos/LX16a.h"
+#include "io_context/io_context.hpp"
 #include <yaml-cpp/yaml.h>
 #include <map>
 #include <string>
+#include <memory>
+#include <deque>
+
+using drivers::common::IoContext;
 
 
 class RemoteController : public rclcpp::Node
@@ -41,8 +47,33 @@ public:
 private:
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
     bool load_controller_config(const std::string& config_file);
+    void init_servo_controller();
+    
+    // Servo control methods
+    void handle_servo_control(const sensor_msgs::msg::Joy::SharedPtr msg);
+    void move_servo(int servo_id, float analog_value);
     
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr m_joy_sub;
+
+    // Servo controller
+    std::shared_ptr<LX16a> m_servo_controller;
+    
+    // Last controller state for smooth updates
+    struct {
+        float left_x = 0.0f;
+        float left_y = 0.0f;
+        float right_x = 0.0f;
+        float right_y = 0.0f;
+    } m_last_joy_state;
+    
+    // Servo position tracking (for smooth movement)
+    std::map<int, int> m_servo_goal_positions;
+    std::map<int, std::deque<float>> m_servo_history;  // For smoothing
+    
+    // Movement parameters
+    int m_servo_move_time = 50;  // milliseconds per servo move
+    float m_servo_speed_multiplier = 1.0f;
+    bool m_enable_servo_control = true;
 
     // Dynamic button storage based on config
     std::map<std::string, std::shared_ptr<Button>> m_buttons;
