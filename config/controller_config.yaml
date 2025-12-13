@@ -1,101 +1,132 @@
-# 8bitdo Ultimate Controller Configuration for RoboDog V3
-# This file maps controller inputs to robot commands
+# 8BitDo Ultimate Controller Configuration for RoboDog V3
+# (Registers as Nintendo Pro Controller when connected via Bluetooth)
 # 
-# 8bitdo Ultimate Button Mapping:
-# [0] = A, [1] = B, [2] = X, [3] = Y
-# [4] = LB, [5] = RB, [6] = Back, [7] = Start
-# [8] = (reserved), [9] = Left Stick Click, [10] = Right Stick Click
+# ============================================================================
+# BUTTON MAPPING (as seen by ROS joy_node)
+# ============================================================================
+# Index | Button | Physical Location
+# ------|--------|------------------
+# [0]   | B      | Right side, bottom (green in Nintendo colors)
+# [1]   | A      | Right side, right (red in Nintendo colors)
+# [2]   | Y      | Right side, left (yellow in Nintendo colors)
+# [3]   | X      | Right side, top (blue in Nintendo colors)
+# [4]   | L      | Left shoulder bumper
+# [5]   | R      | Right shoulder bumper
+# [6]   | ZL     | Left trigger
+# [7]   | ZR     | Right trigger
+# [8]   | -      | Minus button (left of center)
+# [9]   | +      | Plus button (right of center)
+# [10]  | L-Click| Left stick click
+# [11]  | R-Click| Right stick click
+# [12]  | Home   | Home button (center)
+# [13]  | Capture| Capture button (left of center)
 #
-# Axes:
-# [0] = Left Stick X (horizontal), [1] = Left Stick Y (vertical, inverted in joy_node)
-# [2] = Left Trigger (LT), [3] = Right Stick X (horizontal)
-# [4] = Right Stick Y (vertical), [5] = Right Trigger (RT)
-# [6] = D-Pad X, [7] = D-Pad Y
+# ============================================================================
+# AXES MAPPING
+# ============================================================================
+# Index | Control       | Range
+# ------|---------------|------
+# [0]   | Left Stick X  | left=-1.0 ... right=+1.0
+# [1]   | Left Stick Y  | up=-1.0 ... down=+1.0  (inverted!)
+# [2]   | Right Stick X | left=-1.0 ... right=+1.0
+# [3]   | Right Stick Y | up=-1.0 ... down=+1.0  (inverted!)
+# [4]   | D-Pad X       | left=-1.0 ... right=+1.0
+# [5]   | D-Pad Y       | up=-1.0 ... down=+1.0  (inverted!)
+#
+# ============================================================================
+# CURRENT CONTROL SCHEME (RemoteControllerProper.cpp)
+# ============================================================================
+#
+# BUTTONS:
+#   B (index 0)     -> Speed DOWN (decrease speed multiplier)
+#   A (index 1)     -> Speed UP (increase speed multiplier)
+#   Y (index 2)     -> SIT position (lower body to 8cm)
+#   X (index 3)     -> STAND position (raise body to 12cm)
+#   L (index 4)     -> Toggle Servo Enable/Disable
+#   - (index 8)     -> EMERGENCY STOP (disable all movement)
+#   + (index 9)     -> Enable movement (resume from emergency stop)
+#   L-Click (10)    -> Reset speed to 1.0x
+#
+# LEFT STICK:
+#   Push UP         -> Move body FORWARD (lean forward, legs back)
+#   Push DOWN       -> Move body BACKWARD (lean back, legs forward)
+#   Push LEFT       -> Strafe LEFT (body shifts left)
+#   Push RIGHT      -> Strafe RIGHT (body shifts right)
+#
+# RIGHT STICK:
+#   Push UP         -> RAISE body height
+#   Push DOWN       -> LOWER body height
+#   Push LEFT/RIGHT -> (Rotation - not fully implemented)
+#
+# ============================================================================
 
 controller:
   type: "8bitdo_ultimate"
-  vendor_id: 0x2dc8
-  product_id: 0x3822
+  # Registers as Nintendo Pro Controller
+  vendor_id: 0x057e
+  product_id: 0x2009
 
-# Button mappings
+# Button assignments (matching code in RemoteControllerProper.cpp)
 buttons:
-  # Movement controls
-  forward: 7    # Start button to enable forward movement (with analog sticks)
-  backward: 6   # Back button to enable backward movement
-  
-  # Gait/Movement modes
-  stand: 0      # A button
-  walk: 1       # B button
-  trot: 2       # X button  
-  gallop: 3     # Y button
-  
-  # Orientation/Head controls
-  turn_left: 6  # Back button (also used for backward trigger)
-  turn_right: 7 # Start button (also used for forward trigger)
+  # Posture controls
+  sit: 2            # Y button - sit/crouch position
+  stand: 3          # X button - stand position
   
   # Speed controls
-  speed_up: 5   # RB (Right Bumper)
-  speed_down: 4 # LB (Left Bumper)
+  speed_down: 0     # B button - decrease speed
+  speed_up: 1       # A button - increase speed
+  speed_reset: 10   # Left stick click - reset speed to 1.0x
   
-  # Stance/Pose controls
-  sit: 4        # LB - sit position
-  stand_tall: 5 # RB - stand tall position
+  # Safety controls
+  servo_toggle: 4   # L bumper - toggle servo control on/off
+  emergency_stop: 8 # Minus (-) button - disable all movement
+  resume: 9         # Plus (+) button - enable movement
   
-  # Utilities
-  reset: 6      # Back button
-  emergency_stop: 7 # Start button (hold)
-  
-  # Debug
-  debug_toggle: 9  # Left stick click
-  diagnostics: 10  # Right stick click
+  # Debug (unused currently)
+  debug_toggle: 11  # Right stick click
 
-# Analog stick thresholds
+# Analog stick configuration
 sticks:
-  left_deadzone: 0.15
-  right_deadzone: 0.15
-  left_scale: 1.0
-  right_scale: 1.0
-  # Left stick: forward/backward and left/right movement
-  left_stick_x: 0    # Axis index for horizontal
-  left_stick_y: 1    # Axis index for vertical
-  # Right stick: rotation
-  right_stick_x: 3   # Axis index for horizontal
-  right_stick_y: 4   # Axis index for vertical
+  deadzone: 0.15    # 15% deadzone to filter noise
+  
+  # Left stick: Body movement
+  left_stick_x: 0   # Strafe left/right
+  left_stick_y: 1   # Forward/backward
+  
+  # Right stick: Body orientation  
+  right_stick_x: 2  # Rotation (not implemented)
+  right_stick_y: 3  # Height up/down
 
-# Trigger controls
-triggers:
-  left_trigger: 2    # Axis index
-  right_trigger: 5   # Axis index
-  trigger_deadzone: 0.05
-
-# D-Pad
+# D-Pad configuration
 dpad:
-  x_axis: 6
-  y_axis: 7
+  x_axis: 4
+  y_axis: 5
 
-# Movement parameters
+# IK Movement parameters
 movement:
-  max_linear_velocity: 1.0    # m/s
-  max_angular_velocity: 1.57  # rad/s
-  step_height: 0.05           # meters
-  stance_width: 0.3           # meters between legs
+  # Height range (Y axis in leg frame, positive = down toward ground)
+  min_height: 0.08    # 8cm - sit/crouch position
+  max_height: 0.15    # 15cm - tall stand position  
+  default_height: 0.10  # 10cm - normal standing (init position)
+  
+  # Forward/back lean range (Z axis in leg frame)
+  max_forward: 0.05   # 5cm forward lean
+  max_backward: 0.05  # 5cm backward lean
+  
+  # Strafe range (X axis in leg frame)
+  max_strafe: 0.03    # 3cm side movement
 
-# Gait speeds (multiplier of max velocity)
-gaits:
-  walk:
-    speed_factor: 0.3
-    step_duration: 0.8  # seconds
-  trot:
-    speed_factor: 0.6
-    step_duration: 0.4
-  gallop:
-    speed_factor: 1.0
-    step_duration: 0.3
+# Speed settings
+speed:
+  default: 1.0        # Default speed multiplier
+  increment: 0.1      # Speed change per button press
+  min: 0.1            # 10% minimum speed
+  max: 2.0            # 200% maximum speed
 
 # Node configuration
 node:
-  name: "remote_controller"
+  name: "robodog_remote_controller"
   joy_topic: "/joy"
-  cmd_vel_topic: "/cmd_vel"
+  update_rate: 50     # Hz
   log_level: "INFO"
 

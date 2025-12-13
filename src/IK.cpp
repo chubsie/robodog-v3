@@ -30,7 +30,94 @@ IK::IK(double link1, double link2, double link3) :
 
 }
 
-void IK::inverseKinematics(double x, double y, double z, double angles[3])
+bool IK::isReachable(double x, double y, double z) const
+{
+    double x2 = x * x;
+    double y2 = y * y;
+    double z2 = z * z;
+
+    double L1_2 = m_L1 * m_L1;
+    double L2_2 = m_L2 * m_L2;
+    double L3_2 = m_L3 * m_L3;
+
+    // Check if position is within reach of the leg
+    // The leg can reach from L1 to (L1+L2+L3) distance
+    double distSq = x2 + y2 + z2;
+    double minReach = m_L1 * m_L1;  // At minimum, must clear the hip joint
+    double maxReach = (m_L2 + m_L3 + m_L1) * (m_L2 + m_L3 + m_L1);
+    
+    if (distSq < minReach || distSq > maxReach) {
+        return false;
+    }
+
+    // Check if the D parameter for Q3 is in valid range [-1, 1]
+    double D = (x2 + y2 - L1_2 + z2 - L2_2 - L3_2) / (2 * m_L2 * m_L3);
+    
+    // If D is outside [-1, 1], the position is unreachable
+    if (D < -1.0 || D > 1.0) {
+        return false;
+    }
+
+    // Check that sqrt(x2 + y2 - L1_2) is non-negative
+    double xy_term = x2 + y2 - L1_2;
+    if (xy_term < 0) {
+        return false;
+    }
+
+    return true;
+}
+
+bool IK::isAngleSafe(const double angles[3])
+{
+    // Check that none of the angles exceed safe operating range
+    for (int i = 0; i < 3; i++) {
+        if (std::isnan(angles[i]) || std::isinf(angles[i])) {
+            return false;
+        }
+        // Allow up to ±π radians per joint
+        if (angles[i] < -MAX_ANGLE || angles[i] > MAX_ANGLE) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void IK::clampAngles(double angles[3])
+{
+    // Clamp each angle to ±π radians
+    for (int i = 0; i < 3; i++) {
+        if (std::isnan(angles[i]) || std::isinf(angles[i])) {
+            angles[i] = 0;  // Default to neutral if invalid
+        } else if (angles[i] > MAX_ANGLE) {
+            angles[i] = MAX_ANGLE;
+        } else if (angles[i] < -MAX_ANGLE) {
+            angles[i] = -MAX_ANGLE;
+        }
+    }
+}
+
+bool IK::inverseKinematics(double x, double y, double z, double angles[3])
+{
+    // First check if position is reachable
+    if (!isReachable(x, y, z)) {
+        // Return false to indicate invalid position, but compute best approximation
+        inverseKinematics_unsafe(x, y, z, angles);
+        return false;
+    }
+
+    // Perform the IK calculation
+    inverseKinematics_unsafe(x, y, z, angles);
+    
+    // Validate and clamp the resulting angles
+    if (!isAngleSafe(angles)) {
+        clampAngles(angles);
+        return false;
+    }
+
+    return true;
+}
+
+void IK::inverseKinematics_unsafe(double x, double y, double z, double angles[3])
 {
     double x2 = x * x;
     double y2 = y * y;

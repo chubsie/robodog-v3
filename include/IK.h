@@ -40,7 +40,20 @@ public:
 
     IK(double link1, double link2, double link3);
 
-    void inverseKinematics(double x, double y, double z, double angles[3]);
+    // Returns true if position is reachable, false if unreachable (and uses best approximation)
+    bool inverseKinematics(double x, double y, double z, double angles[3]);
+    
+    // Legacy method that doesn't validate
+    void inverseKinematics_unsafe(double x, double y, double z, double angles[3]);
+
+    // Check if a position is reachable within workspace
+    bool isReachable(double x, double y, double z) const;
+    
+    // Clamp angles to safe ranges (±π radians, or ±180 degrees)
+    static void clampAngles(double angles[3]);
+    
+    // Check if angles are in reasonable safe ranges
+    static bool isAngleSafe(const double angles[3]);
 
     static void vectorToEuler(double x, double y, double z, double& pitch, double& yaw);
 
@@ -51,4 +64,8 @@ public:
 
 public:
     double m_L1, m_L2, m_L3;
+    
+    // Safe operation ranges
+    static constexpr double MAX_ANGLE = 3.141592653589793238462;  // ±π radians
+    static constexpr double MIN_WORKSPACE_REACH = 0.05;  // 5cm minimum (to avoid singularities)
 };

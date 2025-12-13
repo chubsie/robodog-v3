@@ -40,6 +40,22 @@ const int    kMaxTemp_v3    = 65;
 class RobotV3 : public Robot
 {
 public:
+    /**
+     * CORRECTED angle_to_servo_pos() - Validated via servo_simulation_final.py
+     * 
+     * KEY FIXES:
+     * 1. Servos grouped by FUNCTION (from PDF), not by ID number
+     * 2. Hip/Knee servos use 90° as neutral angle (not 0°)
+     * 3. Direction determined by PDF max/min values
+     * 
+     * SERVO CLASSIFICATION (from Leg_HW_Config.pdf):
+     * | Leg | Abductor | Hip_Inner | Hip_Outer | Knee_Inner | Knee_Outer |
+     * |-----|----------|-----------|-----------|------------|------------|
+     * | FR  | 6        | 20        | 8         | 19         | 17         |
+     * | FL  | 14       | 3         | 15        | 9          | 10         |
+     * | BL  | 1        | 12        | 4         | 16         | 11         |
+     * | BR  | 2        | 13        | 18        | 7          | 5          |
+     */
     virtual bool angle_to_servo_pos(int servoId, double angle, int& pos, bool silent) override
     {
         if (std::isnan(angle)) {
@@ -47,51 +63,83 @@ public:
             return false;
         }
 
+        // Convert angle to degrees for formula
+        double angleDeg = IK::toDeg(angle);
+
         switch (servoId) {
-            case  1:
-            case 11:
-                pos = 500 - IK::toDeg(angle) * kDegToServo_v3 * kWheelRatio_v3;
+            // ========== ABDUCTORS ==========
+            // Neutral angle = 0°, uses wheel ratio
+            case 1:  // BL Abductor - negative direction
+                pos = 500 - angleDeg * kDegToServo_v3 * kWheelRatio_v3;
                 break;
-            case  2:
-            case 12:
-                // 500 = X - IK::toDeg(PI/2) * kDegToServo_v3 = X - 375  ==>  X = 875
-                pos = 875 - IK::toDeg(angle) * kDegToServo_v3;
+            case 2:  // BR Abductor - positive direction
+                pos = 500 + angleDeg * kDegToServo_v3 * kWheelRatio_v3;
                 break;
-            case  3:
-            case 13:
-                angle_to_servo_pos(2, angle, pos, silent); pos = 1000 - pos;
+            case 6:  // FR Abductor - positive direction
+                pos = 500 + angleDeg * kDegToServo_v3 * kWheelRatio_v3;
                 break;
-            case  4:
-            case 14:
-                // Lower leg has offset, so X=500 is not equal to 0 deg  ==>  use X=600
-                pos = 600 + IK::toDeg(PI/2 - angle) * kDegToServo_v3;
-                break;
-            case  5:
-            case 15:
-                angle_to_servo_pos(4, angle, pos, silent); pos = 1000 - pos;
+            case 14: // FL Abductor - negative direction
+                pos = 500 - angleDeg * kDegToServo_v3 * kWheelRatio_v3;
                 break;
 
-            case  6:
-            case 16:
-                pos = 500 + IK::toDeg(angle) * kDegToServo_v3 * kWheelRatio_v3;
+            // ========== HIP_INNER ==========
+            // Neutral angle = 90°, no wheel ratio
+            case 3:  // FL Hip_Inner - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
                 break;
-            case  7:
-            case 17:
-                // 500 = X + IK::toDeg(PI/2) * kDegToServo_v3 = X + 375  ==>  X = 125
-                pos = 125 + IK::toDeg(angle) * kDegToServo_v3;
+            case 12: // BL Hip_Inner - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
                 break;
-            case  8:
-            case 18:
-                angle_to_servo_pos(7, angle, pos, silent); pos = 1000 - pos;
+            case 13: // BR Hip_Inner - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
                 break;
-            case  9:
-            case 19:
-                // Lower leg has offset, so X=500 is not equal to 0 deg  ==>  use X=400
-                pos = 400 - IK::toDeg(PI/2 - angle) * kDegToServo_v3;
+            case 20: // FR Hip_Inner - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
                 break;
-            case 10:
-            case 20:
-                angle_to_servo_pos(9, angle, pos, silent); pos = 1000 - pos;
+
+            // ========== HIP_OUTER ==========
+            // Neutral angle = 90°, no wheel ratio
+            case 4:  // BL Hip_Outer - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 8:  // FR Hip_Outer - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 15: // FL Hip_Outer - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 18: // BR Hip_Outer - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+
+            // ========== KNEE_INNER ==========
+            // Neutral angle = 90°, no wheel ratio
+            case 7:  // BR Knee_Inner - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 9:  // FL Knee_Inner - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 16: // BL Knee_Inner - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 19: // FR Knee_Inner - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+
+            // ========== KNEE_OUTER ==========
+            // Neutral angle = 90°, no wheel ratio
+            case 5:  // BR Knee_Outer - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 10: // FL Knee_Outer - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 11: // BL Knee_Outer - negative direction
+                pos = 500 - (angleDeg - 90.0) * kDegToServo_v3;
+                break;
+            case 17: // FR Knee_Outer - positive direction
+                pos = 500 + (angleDeg - 90.0) * kDegToServo_v3;
                 break;
 
             default:
@@ -99,7 +147,7 @@ public:
                 return false;
         }
 
-        //silent = false;
+        // Range check
         if (pos < 0) {
             if (!silent) RCLCPP_ERROR(rclcpp::get_logger("RobotV3"), "Servo %d out of range (%d), adjust to 0", servoId, pos);
             pos = 0;
@@ -147,29 +195,29 @@ namespace Factory
         auto robotV3 = std::make_shared<RobotV3>();
 
         // Create servo with offsets
-        auto s1_1 = Factory::CreateLX16a(1, lx16a, -30);
+        auto s1_1 = Factory::CreateLX16a(1, lx16a, 0);
         auto s1_2 = Factory::CreateLX16a(2, lx16a, -60);
-        auto s1_3 = Factory::CreateLX16a(3, lx16a,  -20);
-        auto s1_4 = Factory::CreateLX16a(4, lx16a, 20);
-        auto s1_5 = Factory::CreateLX16a(5, lx16a,  0);
+        auto s1_3 = Factory::CreateLX16a(3, lx16a, -20);
+        auto s1_4 = Factory::CreateLX16a(4, lx16a, -10);
+        auto s1_5 = Factory::CreateLX16a(5, lx16a, 0);
 
-        auto s2_1 = Factory::CreateLX16a( 6, lx16a,  -30);
-        auto s2_2 = Factory::CreateLX16a( 7, lx16a,  10);
+        auto s2_1 = Factory::CreateLX16a( 6, lx16a, 0);
+        auto s2_2 = Factory::CreateLX16a( 7, lx16a, 10);
         auto s2_3 = Factory::CreateLX16a( 8, lx16a, -10);
         auto s2_4 = Factory::CreateLX16a( 9, lx16a, -1);
         auto s2_5 = Factory::CreateLX16a(10, lx16a, -3);
 
-        auto s3_1 = Factory::CreateLX16a(11, lx16a,  0);
-        auto s3_2 = Factory::CreateLX16a(12, lx16a, -10);
-        auto s3_3 = Factory::CreateLX16a(13, lx16a,  -20);
-        auto s3_4 = Factory::CreateLX16a(14, lx16a,   70);
-        auto s3_5 = Factory::CreateLX16a(15, lx16a,   16);
+        auto s3_1 = Factory::CreateLX16a(11, lx16a, 0);
+        auto s3_2 = Factory::CreateLX16a(12, lx16a, 30);
+        auto s3_3 = Factory::CreateLX16a(13, lx16a, 0);
+        auto s3_4 = Factory::CreateLX16a(14, lx16a, 0);
+        auto s3_5 = Factory::CreateLX16a(15, lx16a, 10);
 
-        auto s4_1 = Factory::CreateLX16a(16, lx16a,   0);
-        auto s4_2 = Factory::CreateLX16a(17, lx16a,  0);
-        auto s4_3 = Factory::CreateLX16a(18, lx16a, 10);
-        auto s4_4 = Factory::CreateLX16a(19, lx16a,   -20);
-        auto s4_5 = Factory::CreateLX16a(20, lx16a,  -30);
+        auto s4_1 = Factory::CreateLX16a(16, lx16a, 0);
+        auto s4_2 = Factory::CreateLX16a(17, lx16a, 0);
+        auto s4_3 = Factory::CreateLX16a(18, lx16a, -10);
+        auto s4_4 = Factory::CreateLX16a(19, lx16a, -20);
+        auto s4_5 = Factory::CreateLX16a(20, lx16a, 25);
 
         std::vector<std::shared_ptr<Servo>> servos;
 
@@ -225,9 +273,9 @@ namespace Factory
         leg4_joints[3] = Factory::CreateJointDouble(s2_2, s1_5, robotV3); // 7, 5
 
         auto leg1 = Factory::CreateLeg(1, leg1_joints, false);
-        auto leg2 = Factory::CreateLeg(2, leg2_joints, true );
+        auto leg2 = Factory::CreateLeg(2, leg2_joints, false);
         auto leg3 = Factory::CreateLeg(3, leg3_joints, false);
-        auto leg4 = Factory::CreateLeg(4, leg4_joints, true );
+        auto leg4 = Factory::CreateLeg(4, leg4_joints, false);
 
         leg1->set_geometry(0.029, 0.165, 0.180); // + leg foot ball (20mm radius)
         leg2->set_geometry(0.029, 0.165, 0.180);

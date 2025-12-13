@@ -60,7 +60,7 @@ def generate_launch_description():
         executable='joy_node',
         name='joy_node',
         parameters=[{
-            'device_id': LaunchConfiguration('joy_device'),
+            'device_id': 0,
             'deadzone': 0.1,
             'autorepeat_rate': 50.0,  # 50Hz
             'coalesce_interval_ms': 10,
@@ -68,56 +68,26 @@ def generate_launch_description():
         remappings=[
             ('joy', 'joy'),
         ],
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-    )
-
-    # Hardware node - controls robot servos
-    hw_node = Node(
-        package='robodog',
-        executable='robodog_hw',
-        name='robodog_hw',
         output='screen',
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        # Set environment variable for servo port
-        shell=True,
     )
 
-    # Remote controller node - maps joy input to robot commands
-    remote_node = Node(
+    # Remote controller with IK - handles robot creation internally
+    # This is the proper IK-based controller, not the raw servo controller
+    remote_ik_node = Node(
         package='robodog',
         executable='robodog_remote_controller',
         name='remote_controller',
         output='screen',
-        parameters=[{
-            'config_file': config_file,
-        }],
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
     )
 
     # Build the launch description
-    ld = LaunchDescription([
-        declare_joy_device,
-        declare_servo_port,
-        declare_launch_hw,
-        declare_launch_remote,
-        declare_log_level,
-    ])
+    ld = LaunchDescription()
 
     # Add joy node (always launch)
     ld.add_action(joy_node)
-
-    # Conditionally add hardware node
-    ld.add_action(
-        ExecuteProcess(
-            cmd=['echo', 'Not launching hardware node'],
-            condition=LaunchConfiguration('launch_hw'),
-        )
-    )
     
-    # For now, launch both nodes unconditionally
-    # TODO: Make this conditional based on launch arguments
-    ld.add_action(hw_node)
-    ld.add_action(remote_node)
+    # Launch IK-based remote controller (no separate hw node needed)
+    ld.add_action(remote_ik_node)
 
     return ld
 

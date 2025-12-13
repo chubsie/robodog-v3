@@ -72,6 +72,13 @@ public:
                 moveTime = m_goalMoveTime;
             }
 
+            // Debug: Log servo commands being sent
+            static int servo_cmd_counter = 0;
+            if (++servo_cmd_counter % 200 == 0) {
+                RCLCPP_INFO(rclcpp::get_logger("ServoLX16a"), 
+                    "Servo %d: sending pos=%d moveTime=%d", m_id, pos, moveTime);
+            }
+
             if (!m_lx16a->move(m_id, pos, moveTime)) {
                 m_error.store(true);
                 return;

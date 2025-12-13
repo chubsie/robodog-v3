@@ -32,6 +32,9 @@
 #include <math.h>
 #include <iostream>
 
+// Global height for walking gait - must be synced with pose height
+double g_height = 0.200;  // Default to 200mm (POSE 1 = Middle/Stand)
+
 #define CHECK_MIN_PARAMS_COUNT(n)  if (params.size() < n) { RCLCPP_ERROR(rclcpp::get_logger("MovePrimitives"), "Not enough params (should be %d) in g-code cmd: %s", n, cmd.c_str()); return false; }
 
 bool MovePrimitives::run_primitive(std::string cmd, std::map<int, int> params, bool simulate)
@@ -163,16 +166,22 @@ bool MovePrimitives::set_pose(int posNum)
     switch (posNum)
     {
     case 0: // Down
+        g_height = 0.080;  // 80mm - sync g_height with pose
         return run_with_flush("M 0 80 0\n WM\n");
     case 1: // Middle
+        g_height = 0.200;  // 200mm - sync g_height with pose
         return run_with_flush("M 0 200 0\n WM\n");
     case 2: // Up
+        g_height = 0.330;  // 330mm - sync g_height with pose
         return run_with_flush("M 0 330 0\n WM\n");
     case 3: // Sit
+        g_height = 0.170;  // Approximate height for sit pose
         return run_with_flush("L1 0 285 0\n L2 0 285 0\n L3 0 170 0\n L4 0 170 0\n WM\n");
     case 4: // Lean
+        g_height = 0.170;  // Approximate height for lean pose
         return run_with_flush("L1 0 90 50\n L2 0 90 50\n L3 0 250 50\n L4 0 250 50\n WM\n");
     case 5: // For run
+        g_height = 0.200;  // 200mm - sync g_height with pose
         return run_with_flush("L1 20 200 -40\n L2 -20 200 -40\n L3 20 200 -40\n L4 -20 200 -40\n WM\n");
     }
 
@@ -418,8 +427,6 @@ void MovePrimitives::add_leg_wait_point(Leg& leg, double wait_time)
     leg.add_point(p.x, p.y, p.z, p.time + rclcpp::Duration::from_seconds(wait_time));
 }
 
-double g_height = 0.150;
-
 void MovePrimitives::swing4_leg(Leg& leg, double forward, double side, double height, double time, IK::Vector rot)
 {
     //std::cout << "swing4_leg\n";
@@ -456,6 +463,9 @@ void MovePrimitives::swing4_leg(Leg& leg, double forward, double side, double he
 
 bool MovePrimitives::walk_4(int forward_step, int side_step)
 {
+    RCLCPP_INFO(rclcpp::get_logger("MovePrimitives"), "walk_4 called: forward=%d side=%d g_height=%.3f", 
+                forward_step, side_step, g_height);
+    
     GCodeController::RobotLegs legs = m_ctrl->GetLegs();
 
     if (abs(forward_step) < 20) forward_step = 20 * sign(forward_step);

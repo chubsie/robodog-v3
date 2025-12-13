@@ -83,7 +83,14 @@ public:
         double adjustedX = m_inverseX ? (-x - m_ik->m_L1) : (x - m_ik->m_L1);
 
         double angles[3];
-        m_ik->inverseKinematics(adjustedX, y, z, angles);
+        bool ikValid = m_ik->inverseKinematics(adjustedX, y, z, angles);
+        
+        if (!ikValid && !simulate) {
+            RCLCPP_WARN(rclcpp::get_logger("LegImpl"), 
+                "Leg %d: Position (%.3f, %.3f, %.3f) may be unreachable or results in unsafe angles. "
+                "Computing best approximation. Check servo positions carefully.",
+                m_legId, x, y, z);
+        }
 
         if (!move(angles, move_time, simulate)) {
             if (!simulate) {
@@ -163,6 +170,12 @@ public:
     {
         if (m_points.size() == 0) return;
 
+        // Debug: Log when we have points to process (less frequently)
+        static int debug_counter = 0;
+        if (++debug_counter % 10000 == 0) {
+            RCLCPP_INFO(rclcpp::get_logger("LegImpl"), "Leg %d cycle: %zu points in queue", m_legId, m_points.size());
+        }
+
         MOVE_POINT p1;
         MOVE_POINT p2;
 
@@ -191,6 +204,13 @@ public:
             m_lastPoint = p1;
 
             if (currTime >= p2.time) {
+                // Debug: Log when we're clearing points (they're in the past)
+                static int clear_counter = 0;
+                if (++clear_counter % 100 == 0) {
+                    RCLCPP_WARN(rclcpp::get_logger("LegImpl"), 
+                        "Leg %d: Clearing %zu points (all in past). currTime=%.3f p2.time=%.3f", 
+                        m_legId, m_points.size(), currTime.seconds(), p2.time.seconds());
+                }
                 currTime = p2.time;
                 m_points.clear();
                 //std::cout << "Clear all m_points\n";
@@ -214,6 +234,13 @@ public:
         double x = p1.x + (k * (p2.x - p1.x));
         double y = p1.y + (k * (p2.y - p1.y));
         double z = p1.z + (k * (p2.z - p1.z));
+
+        // Debug: Log actual move commands
+        static int move_counter = 0;
+        if (++move_counter % 500 == 0) {  // Log every 500th move to avoid spam
+            RCLCPP_INFO(rclcpp::get_logger("LegImpl"), 
+                "Leg %d move: x=%.4f y=%.4f z=%.4f k=%.3f", m_legId, x, y, z, k);
+        }
 
         move(x, y, z, 0, false);
     }

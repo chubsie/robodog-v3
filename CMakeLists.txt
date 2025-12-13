@@ -83,7 +83,7 @@ target_link_libraries(${PROJECT_NAME}_client
 
 # Create the remote controller executable
 add_executable(${PROJECT_NAME}_remote_controller
-  "src/RemoteControl/RemoteController.cpp"
+  "src/robodog_joy_node.cpp"
 )
 
 # Link the remote controller against its dependencies
@@ -91,6 +91,18 @@ ament_target_dependencies(${PROJECT_NAME}_remote_controller rclcpp sensor_msgs y
 target_link_libraries(${PROJECT_NAME}_remote_controller
   ${PROJECT_NAME}_lib
   yaml-cpp
+  ${rosidl_get_libraries_for_interface_packages}
+)
+
+# Create the proper remote controller executable (with IK and Leg API)
+add_executable(${PROJECT_NAME}_remote_controller_ik
+  "src/RemoteControl/RemoteControllerProper.cpp"
+)
+
+# Link the proper remote controller against its dependencies
+ament_target_dependencies(${PROJECT_NAME}_remote_controller_ik rclcpp sensor_msgs)
+target_link_libraries(${PROJECT_NAME}_remote_controller_ik
+  ${PROJECT_NAME}_lib
   ${rosidl_get_libraries_for_interface_packages}
 )
 
@@ -123,6 +135,7 @@ install(TARGETS
   ${PROJECT_NAME}_hw
   ${PROJECT_NAME}_client
   ${PROJECT_NAME}_remote_controller
+  ${PROJECT_NAME}_remote_controller_ik
   ${PROJECT_NAME}_servo_diagnostics
   ${PROJECT_NAME}_servo_scanner
   DESTINATION lib/${PROJECT_NAME}

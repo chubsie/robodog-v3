@@ -28,6 +28,8 @@
 #include "Button.h"
 #include "CommandMenu.h"
 #include "IK.h"
+#include "Robot.h"
+#include "GCodeController.h"
 #include "Servos/LX16a.h"
 #include "io_context/io_context.hpp"
 #include <yaml-cpp/yaml.h>
@@ -47,33 +49,29 @@ public:
 private:
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
     bool load_controller_config(const std::string& config_file);
-    void init_servo_controller();
     
-    // Servo control methods
-    void handle_servo_control(const sensor_msgs::msg::Joy::SharedPtr msg);
-    void move_servo(int servo_id, float analog_value);
+    // Movement control methods
+    void process_movement(float left_x, float left_y, float right_x, float right_y);
+    void move_to_stand();
+    void move_to_sit();
+    float apply_deadzone(float value);
     
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr m_joy_sub;
 
-    // Servo controller
-    std::shared_ptr<LX16a> m_servo_controller;
+    // Robot components
+    std::shared_ptr<Robot> m_robot;
+    GCodeController::RobotLegs m_legs;
     
-    // Last controller state for smooth updates
-    struct {
-        float left_x = 0.0f;
-        float left_y = 0.0f;
-        float right_x = 0.0f;
-        float right_y = 0.0f;
-    } m_last_joy_state;
+    // State tracking
+    float m_speed_multiplier = 1.0f;
+    bool m_movement_enabled = true;
+    bool m_servos_enabled = true;
+    bool m_robot_initialized = false;  // Track if robot has been initialized to stand
     
-    // Servo position tracking (for smooth movement)
-    std::map<int, int> m_servo_goal_positions;
-    std::map<int, std::deque<float>> m_servo_history;  // For smoothing
-    
-    // Movement parameters
-    int m_servo_move_time = 50;  // milliseconds per servo move
-    float m_servo_speed_multiplier = 1.0f;
-    bool m_enable_servo_control = true;
+    // Current foot position tracking (leg-local coordinates)
+    double m_foot_x = 0.0;
+    double m_foot_y = 0.10;
+    double m_foot_z = -0.20;
 
     // Dynamic button storage based on config
     std::map<std::string, std::shared_ptr<Button>> m_buttons;
@@ -82,34 +80,24 @@ private:
     YAML::Node m_config;
     std::map<std::string, int> m_button_mapping;
     std::map<std::string, int> m_axis_mapping;
+    
+    // Deadzones
+    float m_left_deadzone = 0.15f;
+    float m_right_deadzone = 0.15f;
 
-    // Button state tracking (Nintendo Pro Controller mapping)
-    Button m_button_b;              // buttons[0]
-    Button m_button_a;              // buttons[1]
-    Button m_button_y;              // buttons[2]
-    Button m_button_x;              // buttons[3]
-    Button m_button_l;              // buttons[4] - Left Bumper
-    Button m_button_r;              // buttons[5] - Right Bumper
-    Button m_button_l2;             // buttons[6] - Left Trigger
-    Button m_button_r2;             // buttons[7] - Right Trigger
-    Button m_button_minus;          // buttons[8] - Minus (-)
-    Button m_button_plus;           // buttons[9] - Plus (+)
-    Button m_button_l_stick;        // buttons[10] - Left Stick Press
-    Button m_button_r_stick;        // buttons[11] - Right Stick Press
-    Button m_button_home;           // buttons[12]
-    Button m_button_star;           // buttons[13] - Screenshot
+    // Rate limiting for walking commands
+    rclcpp::Time m_last_walk_command_time;
+    bool m_walking_in_progress = false;
 
-    // Axis indices (Nintendo Pro Controller)
-    // axes[0]: Left Stick X (Left is +1, Right is -1)
-    // axes[1]: Left Stick Y (Up is +1, Down is -1)
-    // axes[2]: Right Stick X (Left is +1, Right is -1)
-    // axes[3]: Right Stick Y (Up is +1, Down is -1)
-    // axes[4]: D-Pad X (Left is +1, Right is -1)
-    // axes[5]: D-Pad Y (Up is +1, Down is -1)
-
-    // Configuration values
-    float m_left_deadzone;
-    float m_right_deadzone;
+    // Button state tracking
+    Button m_button_speed_down;     // B
+    Button m_button_speed_up;       // A
+    Button m_button_sit;            // Y
+    Button m_button_stand;          // X
+    Button m_button_servo_toggle;   // L
+    Button m_button_emergency;      // Minus
+    Button m_button_resume;         // Plus
+    Button m_button_speed_reset;    // L-Stick Click
 };
 
 
